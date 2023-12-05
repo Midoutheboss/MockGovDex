@@ -1,43 +1,56 @@
 import discord
 from discord.ext import commands, tasks
 import random
+import asyncio
 
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.messages = True
+intents.message_content = True
 
-client = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents)
 
 characters = {
-    "Charmander": "https://example.com/charmander.png",
-    "Pikachu": "https://example.com/pikachu.png",
-    # Add more characters as needed
+    'randomcharacter': 'https://example.com/random_character_image.png',
+    'wilhelmkeitel': 'https://example.com/wilhelm_keitel_image.png',
+    'midou': 'https://example.com/midou_image.png'
 }
-spawned_character = None
 
-@client.event
+inventory = {}   # Dictionary to store player inventories
+
+@bot.event
 async def on_ready():
-    print(f'We have logged in as {client.user}')
-    character_spawn.start()
+    print(f'{bot.user} has connected to Discord!')
+    spawn_characters.start()
 
-@tasks.loop(minutes=10)
-async def character_spawn():
-    global spawned_character
-    spawned_character = random.choice(list(characters.keys()))
+@tasks.loop(seconds=30)  # Adjust the interval to 30 seconds
+async def spawn_characters():
+    character_name = "RandomCharacter"
+    image_url = "https://example.com/random_character_image.png"
+    characters[character_name.lower()] = image_url
+    channel_id = YOUR_CHANNEL_ID  # Replace with the actual channel ID where you want characters to spawn
+    channel = bot.get_channel(channel_id)
+    await channel.send(f'A wild {character_name} appeared!\n{image_url}')
 
-@client.event
-async def on_message(message):
-    global spawned_character
+@bot.command(name='collect')
+async def collect_character(ctx, character_name):
+    character_name_lower = character_name.lower()
+    if character_name_lower in characters:
+        author_id = str(ctx.author.id)
+        if author_id not in inventory:
+            inventory[author_id] = []
 
-    if message.author == client.user:
-        return
+        inventory[author_id].append(character_name_lower)
+        await ctx.send(f'{character_name} collected successfully!')
+    else:
+        await ctx.send(f'{character_name} not found.')
 
-    if message.content.lower() == '!collect':
-        if spawned_character:
-            character_name = spawned_character
-            character_image_url = characters[character_name]
-            await message.channel.send(f"{message.author.mention} collected {character_name}!",
-                                       file=discord.File(character_image_url))
-            spawned_character = None
-        else:
-            await message.channel.send("No character to collect right now. Try again later.")
+@bot.command(name='inventory')
+async def show_inventory(ctx):
+    author_id = str(ctx.author.id)
+    if author_id in inventory and inventory[author_id]:
+        inventory_info = ', '.join(inventory[author_id])
+        await ctx.send(f'Your inventory: {inventory_info}')
+    else:
+        await ctx.send('Your inventory is empty.')
 
-client.run('MTE4MTY0NjU3NzgyODM3MjUyMA.G58-8u.bPjFaLCgrdPmGqhQelKKVGt40vfkY0qg1ZXo0E')
+bot.run('YOUR_BOT_TOKEN')  # Replace 'YOUR_BOT_TOKEN' with your actual bot token
